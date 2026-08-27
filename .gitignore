@@ -1,0 +1,13 @@
+# Compiled binaries
+*.exe
+*.bin
+iter
+naive_test
+test_oa
+src.bin
+
+# Build artifacts inside source tree
+src/dataframe/dataframe
+
+# Temp
+tmp/
