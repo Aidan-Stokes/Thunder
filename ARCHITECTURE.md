@@ -14,7 +14,8 @@ sim/
 ├── DESIGN.md
 ├── ARCHITECTURE.md
 ├── ROADMAP.md
-├── LICENSE
+├── README.md
+├── CONTRIBUTING.md
 │
 ├── libs/                          vendored + in-tree helper packages
 │   ├── odinarrow/                 vendored OdinArrow (Arrow IPC, S17)
