@@ -157,6 +157,24 @@ constructor; expression evaluation and I/O work only over the types above.
 
 ---
 
+## Platform support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Linux x64** | Supported | Primary development platform |
+| **macOS ARM64** (Apple Silicon) | Supported | |
+| **macOS x64** (Intel) | Supported | AVX2 path requires Haswell+ CPU (2013+) |
+| **Windows x64** | Supported | AVX2 path requires Haswell+ CPU (2013+) |
+| **Linux ARM64** | Supported | Scalar fallback for i32 min/max kernel |
+
+All SIMD-accelerated kernels degrade gracefully on non-x86 architectures —
+the `core:simd` abstraction decomposes wide vectors into native NEON ops,
+and the AVX2-only `_min_max_i32_simd` kernel falls back to a scalar loop on
+ARM64.  LZ4 compression ships pre-built static archives for Linux, macOS,
+and Windows.
+
+---
+
 ## Project structure
 
 ```
