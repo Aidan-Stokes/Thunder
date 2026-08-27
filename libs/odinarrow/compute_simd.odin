@@ -98,33 +98,40 @@ _max_i32_simd :: #force_inline proc "contextless" (data: [^]i32, n: int) -> i32 
 // the memory-read floor. NOT force-inlined so the target feature stays scoped to
 // this function rather than leaking AVX2 codegen into a baseline caller.
 //
-// TRADEOFF: emits AVX2 unconditionally, so it requires an AVX2 CPU (Haswell,
-// 2013+). To support older hardware later, gate this behind a runtime CPUID
-// check (e.g. core:sys/info or an `intrinsics` feature probe) and fall back to an
-// SSE4.1 (pminsd) or scalar variant — i.e. runtime dispatch like Arrow does.
-@(enable_target_feature = "avx2")
-_min_max_i32_simd :: proc "contextless" (data: [^]i32, n: int) -> (lo: i32, hi: i32) {
-	V  :: #simd[8]i32
-	vp := cast([^]V)data
-	nv := n / 8
-	if nv > 0 {
-		lo0 := vp[0]; lo1 := vp[0]
-		hi0 := vp[0]; hi1 := vp[0]
-		i := 1
-		for i + 1 < nv {
-			lo0 = intrinsics.simd_min(lo0, vp[i]);   hi0 = intrinsics.simd_max(hi0, vp[i])
-			lo1 = intrinsics.simd_min(lo1, vp[i+1]); hi1 = intrinsics.simd_max(hi1, vp[i+1])
-			i += 2
+// TRADEOFF: on x86, emits AVX2 unconditionally (requires Haswell+, 2013+).
+// On ARM64 / other architectures, falls back to a scalar loop.
+when ODIN_ARCH == .amd64 || ODIN_ARCH == .i386 {
+	@(enable_target_feature = "avx2")
+	_min_max_i32_simd :: proc "contextless" (data: [^]i32, n: int) -> (lo: i32, hi: i32) {
+		V  :: #simd[8]i32
+		vp := cast([^]V)data
+		nv := n / 8
+		if nv > 0 {
+			lo0 := vp[0]; lo1 := vp[0]
+			hi0 := vp[0]; hi1 := vp[0]
+			i := 1
+			for i + 1 < nv {
+				lo0 = intrinsics.simd_min(lo0, vp[i]);   hi0 = intrinsics.simd_max(hi0, vp[i])
+				lo1 = intrinsics.simd_min(lo1, vp[i+1]); hi1 = intrinsics.simd_max(hi1, vp[i+1])
+				i += 2
+			}
+			for ; i < nv; i += 1 {
+				lo0 = intrinsics.simd_min(lo0, vp[i]); hi0 = intrinsics.simd_max(hi0, vp[i])
+			}
+			lo = intrinsics.simd_reduce_min(intrinsics.simd_min(lo0, lo1))
+			hi = intrinsics.simd_reduce_max(intrinsics.simd_max(hi0, hi1))
+			for j := nv * 8; j < n; j += 1 { lo = min(lo, data[j]); hi = max(hi, data[j]) }
+		} else {
+			lo = data[0]; hi = data[0]
+			for j in 1..<n { lo = min(lo, data[j]); hi = max(hi, data[j]) }
 		}
-		for ; i < nv; i += 1 {
-			lo0 = intrinsics.simd_min(lo0, vp[i]); hi0 = intrinsics.simd_max(hi0, vp[i])
-		}
-		lo = intrinsics.simd_reduce_min(intrinsics.simd_min(lo0, lo1))
-		hi = intrinsics.simd_reduce_max(intrinsics.simd_max(hi0, hi1))
-		for j := nv * 8; j < n; j += 1 { lo = min(lo, data[j]); hi = max(hi, data[j]) }
-	} else {
+		return
+	}
+} else {
+	// Scalar fallback for ARM64 and other non-x86 architectures.
+	_min_max_i32_simd :: proc "contextless" (data: [^]i32, n: int) -> (lo: i32, hi: i32) {
 		lo = data[0]; hi = data[0]
 		for j in 1..<n { lo = min(lo, data[j]); hi = max(hi, data[j]) }
+		return
 	}
-	return
 }
